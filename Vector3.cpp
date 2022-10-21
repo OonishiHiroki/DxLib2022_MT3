@@ -7,7 +7,6 @@ Vector3::Vector3()
 Vector3::Vector3(float x, float y, float z)
 	: x(x), y(y), z(z) 
 {
-
 }
 float Vector3::length() const {
 	return std::sqrt(x * x + y * y + z * z);
