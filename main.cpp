@@ -1,6 +1,7 @@
 #include <DxLib.h>
 #include <vector>
 #include "Vector3.h"
+#include "Quaternion.h"
 #include <cstring> //memcpy
 
 //線分の描画
@@ -62,11 +63,22 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	long long nowCount = 0;
 	long long elapsedCount = 0;
 
+	Quaternion* quaternion = new Quaternion();
+	Quaternion q1 = { 2.0f,3.0f,4.0f,1.0f };
+	Quaternion q2 = { 1.0f,3.0f,5.0f,2.0f };
+	Quaternion identity = quaternion->IdentityQuaternion();
+	Quaternion conj = quaternion->Conjugate(q1);
+	Quaternion inv = quaternion->Inverse(q1);
+	Quaternion normal = quaternion->Normalize(q1);
+	Quaternion mul1 = quaternion->Multiply(q1, q2);
+	Quaternion mul2 = quaternion->Multiply(q2, q1);
+	float norm = quaternion->Norm(q1);
+
 	//補間で使うデータ
 	//start → end を5秒で完了させる
 	Vector3 start(-100.0f, 0, 0);		//スタート地点
-	Vector3 p2(-50.0f,  50.0f, +50.0f);	//制御点その1
-	Vector3 p3(+50.0f,-30.0f, -50.0f);	//制御点その2
+	Vector3 p2(-50.0f, 50.0f, +50.0f);	//制御点その1
+	Vector3 p3(+50.0f, -30.0f, -50.0f);	//制御点その2
 	Vector3 end(100.0f, 0.0f, 0.0f);	//ゴール地点
 
 	//				p1 - p2 - p3 - p4 を通るスプライン曲線を考える
@@ -125,7 +137,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 			}
 		}
 		position = splinePosition(points, startIndex, timeRate);
-		
+
 		//position = easeIn(start,end,timerate);
 		//position = easeOut(start,end,timerate);
 		//position = easeInOut(start,end,timerate);
@@ -142,16 +154,14 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 		DrawSphere3D(position, 5.0f, 32, GetColor(255, 0, 0), GetColor(255, 255, 255), TRUE);
 
-		DrawFormatString(0, 0, GetColor(255, 255, 255), "position (%5.1f,%5.1f,%5.1f)", position.x, position.y, position.z);
-		DrawFormatString(0, 20, GetColor(255, 255, 255), "startIndex %d", startIndex);
-		DrawFormatString(0, 40, GetColor(255, 255, 255), "timeRate %7.3f[s]", timeRate);
-		DrawFormatString(0, 60, GetColor(255, 255, 255), "elapsedTime %7.3f[s]", elapsedTime);
-		DrawFormatString(0, 80, GetColor(255, 255, 255), "[R]: Restart");
-
-		DrawFormatString(0, 100, GetColor(255, 255, 255), "start (%6.1f,%6.1f,%6.1f)", start.x, start.y, start.z);
-		DrawFormatString(0, 120, GetColor(255, 255, 255), "p2    (%6.1f,%6.1f,%6.1f)", p2.x, p2.y, p2.z);
-		DrawFormatString(0, 140, GetColor(255, 255, 255), "p3    (%6.1f,%6.1f,%6.1f)", p3.x, p3.y, p3.z);
-		DrawFormatString(0, 160, GetColor(255, 255, 255), "end   (%6.1f,%6.1f,%6.1f)", end.x, end.y, end.z);
+		// 座標などの描画
+		DrawFormatString(0, 0, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f  %4.2f  : Identity\n", identity.x, identity.y, identity.z, identity.w);
+		DrawFormatString(0, 20, GetColor(255, 255, 255), "%4.2f %4.2f %4.2f %4.2f    : Conjugate\n", conj.x, conj.y, conj.z, conj.w);
+		DrawFormatString(0, 40, GetColor(255, 255, 255), "%4.2f %4.2f %4.2f %4.2f    : Inverse\n", inv.x, inv.y, inv.z, inv.w);
+		DrawFormatString(0, 60, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f  %4.2f : Normalize\n", normal.x, normal.y, normal.z, normal.w);
+		DrawFormatString(0, 80, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f %4.2f  : Multiplay(q1, q2)\n", mul1.x, mul1.y, mul1.z, mul1.w);
+		DrawFormatString(0, 100, GetColor(255, 255, 255), "%4.2f  %4.2f %4.2f %4.2f  : Multiplay(q2, q1)\n", mul2.x, mul2.y, mul2.z, mul2.w);
+		DrawFormatString(0, 120, GetColor(255, 255, 255), "%4.2f                     : Norm\n", norm);
 		//フリップする
 		ScreenFlip();
 	}
@@ -231,10 +241,10 @@ Vector3 splinePosition(const std::vector<Vector3>& points, size_t startIndex, fl
 	Vector3 p3 = points[startIndex + 2];
 
 	//Catmull-Rom の式による補間
-	Vector3 position = 0.5 * (p1 * 2 + (-p0 + p2) * 
-		 t + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * 
-		 (t * t) + (-p0 + p1 * 3 - p2 * 3 + p3) * 
-		 (t * t * t));
+	Vector3 position = 0.5 * (p1 * 2 + (-p0 + p2) *
+							  t + (p0 * 2 - p1 * 5 + p2 * 4 - p3) *
+							  (t * t) + (-p0 + p1 * 3 - p2 * 3 + p3) *
+							  (t * t * t));
 
 	return position;
 }
