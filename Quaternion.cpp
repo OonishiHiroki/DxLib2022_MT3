@@ -1,78 +1,130 @@
 #include "Quaternion.h"
+#include<cmath>
 
-using namespace std;
-
-Quaternion::Quaternion()
-	:x(0), y(0), z(0), w(0) {
+Quaternion::Quaternion() {
+	this->w = 1;
+	this->x = 0;
+	this->y = 0;
+	this->z = 0;
 }
 
-Quaternion::Quaternion(float x, float y, float z, float w)
-	: x(x), y(y), z(z), w(w) {
+Quaternion::Quaternion(float x, float y, float z, float w) {
+	this->w = w;
+	this->x = x;
+	this->y = y;
+	this->z = z;
 }
 
-Quaternion Quaternion::Multiply(const Quaternion& lhs, const Quaternion& rhs) {
-	Quaternion mp;
+Quaternion Quaternion::Multiply(Quaternion r) {
+	Quaternion result;
 
-	mp.w = ((lhs.w * rhs.w) - (lhs.x * rhs.x) - (lhs.y * rhs.y) - (lhs.z * rhs.z));
-	mp.x = ((lhs.y * rhs.z) - (lhs.z * rhs.y) + (rhs.w * lhs.x) + (lhs.w * rhs.x));
-	mp.y = ((lhs.z * rhs.x) - (lhs.x * rhs.z) + (rhs.w * lhs.y) + (lhs.w * rhs.y));
-	mp.z = ((lhs.x * rhs.y) - (lhs.y * rhs.x) + (rhs.w * lhs.z) + (lhs.w * rhs.z));
+	result.w = w * r.w - x * r.x - y * r.y - z * r.z;
+	result.x = y * r.z - z * r.y + r.w * x + w * r.x;
+	result.y = z * r.x - x * r.z + r.w * y + w * r.y;
+	result.z = x * r.y - y * r.x + r.w * z + w * r.z;
 
-	return mp;
+	return result;
 }
 
 Quaternion Quaternion::IdentityQuaternion() {
-	Quaternion iy(0, 0, 0, 1);
+	Quaternion result;
 
-	return iy;
+	result.w = 1;
+	result.x = 0;
+	result.y = 0;
+	result.z = 0;
+
+	return result;
 }
 
-Quaternion Quaternion::Conjugate(const Quaternion& quaternion) {
-	Quaternion cj(-quaternion.x, -quaternion.y, -quaternion.z, 1);
+Quaternion Quaternion::Conjugate() {
+	Quaternion result;
 
-	return cj;
+	result.w = w;
+	result.x = -x;
+	result.y = -y;
+	result.z = -z;
+
+	return result;
 }
 
-float Quaternion::Norm(const Quaternion& quaternion) {
-	float norm = sqrt(quaternion.x * quaternion.x + quaternion.y * quaternion.y + quaternion.z * quaternion.z + quaternion.w * quaternion.w);
-
-	return norm;
+float Quaternion::Norm() const {
+	return sqrt(pow(w, 2) + pow(x, 2) + pow(y, 2) + pow(z, 2));
 }
 
-Quaternion Quaternion::Normalize(const Quaternion& quaternion) {
-	float len = Norm(quaternion);
+Quaternion Quaternion::Normalize() {
+	Quaternion result = *this;
 
-	if (len != 0) {
+	float len = this->Norm();
 
-		Quaternion nl(quaternion);
+	result = result / len;
 
-		nl.x /= len;
-		nl.y /= len;
-		nl.z /= len;
-		nl.w /= len;
-
-		return nl;
-	}
-
-	return quaternion;
+	return result;
 }
 
-Quaternion Quaternion::Inverse(const Quaternion& quaternion) {
-	Quaternion iv;
+Quaternion Quaternion::INverse() {
+	Quaternion result = this->Conjugate() / pow(this->Norm(), 2);
 
-	iv = Conjugate(quaternion) / (Norm(quaternion) * Norm(quaternion));
-
-	return iv;
+	return result;
 }
 
-const Quaternion operator/(const Quaternion& qr, float s) {
-	Quaternion temp(qr);
+Quaternion MakeAxisAngle(const Vector3& axsi, float angle) {
+	Quaternion result;
 
-	temp.x /= s;
-	temp.y /= s;
-	temp.z /= s;
-	temp.w /= s;
+	result.w = cos(angle / 2);
 
-	return temp;
+	Vector3 VecResult = axsi * sin(angle / 2);
+
+	result.x = VecResult.x;
+	result.y = VecResult.y;
+	result.z = VecResult.z;
+
+	return result;
 }
 
+Vector3 Quaternion::RotateVector(const Vector3& vector) {
+
+	Quaternion result;
+
+	Quaternion VecQua;
+
+	VecQua.w = 0;
+	VecQua.x = vector.x;
+	VecQua.y = vector.y;
+	VecQua.z = vector.z;
+
+	Quaternion conQuaternion = this->Conjugate();
+
+	result = this->Multiply(VecQua);
+
+	result = result.Multiply(conQuaternion);
+
+	return { result.x,result.y,result.z };
+}
+
+Matrix4 Quaternion::MakeRotateMatrix() {
+	Matrix4 result = identity();
+
+	result.m[0][0] = this->w * this->w + this->x * this->x - this->y * this->y - this->z * this->z;
+	result.m[0][1] = 2 * (this->x * this->y + this->w * this->z);
+	result.m[0][2] = 2 * (this->x * this->z - this->w * this->y);
+	result.m[1][0] = 2 * (this->x * this->y - this->w * this->z);
+	result.m[1][1] = this->w * this->w - this->x * this->x + this->y * this->y - this->z * this->z;
+	result.m[1][2] = 2 * (this->y * this->z + this->w * this->x);
+	result.m[2][0] = 2 * (this->x * this->z + this->w * this->y);
+	result.m[2][1] = 2 * (this->y * this->z - this->w * this->x);
+	result.m[2][2] = this->w * this->w - this->x * this->x - this->y * this->y + this->z * this->z;
+
+	return result;
+}
+
+const Quaternion operator/(const Quaternion& v, float s) {
+	Quaternion result;
+
+	result.w = v.w / s;
+	result.x = v.x / s;
+	result.y = v.y / s;
+	result.z = v.z / s;
+
+	return result;
+}

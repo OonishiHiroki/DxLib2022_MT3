@@ -1,6 +1,6 @@
 #pragma once
-#include <cmath>
-
+#include"vector3.h"
+#include"Matrix4.h"
 class Quaternion {
 public:
 	float x;
@@ -11,20 +11,26 @@ public:
 	Quaternion();
 	Quaternion(float x, float y, float z, float w);
 
-public:
-	// Quaternion‚ÌÏ
-	Quaternion Multiply(const Quaternion& lhs, const Quaternion& rhs);
-	// ’PˆÊQuaternion‚ğ•Ô‚·
+	//Quaternion‚ÌÏ
+	Quaternion Multiply(Quaternion r);
+	//’PˆÊQuaternion‚ğ•Ô‚·
 	Quaternion IdentityQuaternion();
-	// ‹¤–ğQuaternion‚ğ•Ô‚·
-	Quaternion Conjugate(const Quaternion& quaternion);
-	// Quaternion‚Ìnorm‚ğ•Ô‚·
-	float Norm(const Quaternion& quaternion);
-	// ³‹K‰»‚µ‚½Quaternion‚ğ•Ô‚·
-	Quaternion Normalize(const Quaternion& quaternion);
-	// ‹tQuaternion‚ğ•Ô‚·
-	Quaternion Inverse(const Quaternion& quaternion);
-
+	//‹¤–ğQuaternion‚ğ•Ô‚·
+	Quaternion Conjugate();
+	//Quaternion‚Ìnorm‚ğ•Ô‚·
+	float Norm() const;
+	//³‹K‰»‚µ‚½Quaternion‚ğ•Ô‚·
+	Quaternion Normalize();
+	//‹tQuaternion‚ğ•Ô‚·
+	Quaternion INverse();
+	//ƒxƒNƒgƒ‹‚ğQuaternion‚Å‰ñ“]‚³‚¹‚½Œ‹‰Ê‚ÌƒxƒNƒgƒ‹‚ğ‹‚ß‚é
+	Vector3 RotateVector(const Vector3& vector);
+	//Quaternion‚©‚ç‰ñ“]s—ñ‚ğ‹‚ß‚é
+	Matrix4 MakeRotateMatrix();
 };
-const Quaternion operator/(const Quaternion& qr, float s);
+
+//”CˆÓ²‰ñ“]‚ğ•\‚·Quaternion‚Ì¶¬
+Quaternion MakeAxisAngle(const Vector3& axsi, float angle);
+
+const Quaternion operator/(const Quaternion& v, float s);
 
