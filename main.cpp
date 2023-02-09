@@ -1,174 +1,108 @@
-#include <DxLib.h>
-#include <vector>
-#include "Vector3.h"
+#include "DxLib.h"
+#include <cmath>
+#include "Matrix4.h"
 #include "Quaternion.h"
-#include <cstring> //memcpy
 
-//線分の描画
-//Dxlib => int DrawLine3D(VECTOR Pos1,VECTOR Pos2,const unsigned int Color);
-int DrawLine3D(const Vector3& Pos1, const Vector3& Pos2, const unsigned int Color);
+// ウィンドウのタイトルに表示する文字列
+const char TITLE[] = "LE2B_07_オオニシ_ヒロキ";
 
-//カメラの位置と姿勢の設定
-//Dxlib => int SetCameraPositionAndTargetAndUpVec(VECTOR Position, VECTOR Target, VECTOR Up);
-int SetCameraPositionAndTargetAndUpVec(
-	const Vector3& cameraPosition,	//カメラの位置
-	const Vector3& cameraTarget,	//カメラの注視点
-	const Vector3& cameraUp			//カメラの上の向き
-);
+// ウィンドウ横幅
+const int WIN_WIDTH = 600;
 
-//制御点の集合(vectorコンテナ)、補間する区間の添字、時間経過率
-Vector3 splinePosition(const std::vector<Vector3>& point, size_t startIndex, float t);
+// ウィンドウ縦幅
+const int WIN_HEIGHT = 400;
 
-//球の描画
-//Dxlib => int DrawSphere3D(VECTOR CenterPos,float r,int DivNum,unsigned int DifColor,unsigned int SpcColor,int FillFlag);
-int DrawSphere3D(const Vector3& CenterPos, const float r, const int DivNum,
-				 const unsigned int DifColor, const unsigned int SpcColor, const int FillFlag);
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine,
+				   _In_ int nCmdShow) {
+	// ウィンドウモードに設定
+	ChangeWindowMode(TRUE);
 
-//関数プロトタイプ宣言
-void DrawAxis3D(const float length);	//x,y,z軸の描画
+	// ウィンドウサイズを手動では変更させず、
+	// かつウィンドウサイズに合わせて拡大できないようにする
+	SetWindowSizeChangeEnableFlag(FALSE, FALSE);
 
-int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow) {
+	// タイトルを変更
+	SetMainWindowText(TITLE);
 
-	const int WindowWidth = 1024;
-	const int WindowHeight = 576;
+	// 画面サイズの最大サイズ、カラービット数を設定(モニターの解像度に合わせる)
+	SetGraphMode(WIN_WIDTH, WIN_HEIGHT, 32);
 
-	ChangeWindowMode(true);//ウィンドウモードになる
-	SetGraphMode(WindowWidth, WindowHeight, 32);//画面モードのセット
-	SetBackgroundColor(0, 0, 64);//背景色RGB
-	if (DxLib_Init() == -1) { return -1; }// DXlibの初期化
-	SetDrawScreen(DX_SCREEN_BACK);// (ダブルバッファ)描画先グラフィック領域は裏面を指定
+	// 画面サイズを設定(解像度との比率で設定)
+	SetWindowSizeExtendRate(1.0);
 
-	// Ｚバッファを有効にする
-	SetUseZBuffer3D(TRUE);
-	// Ｚバッファへの書き込みを有効にする
-	SetWriteZBuffer3D(TRUE);
+	// 画面の背景色を設定する
+	SetBackgroundColor(0x19, 0x40, 0x80);
 
-	////カメラの初期化
-	//Vector3 cameraPosition(50.0f, 50.0f, -400.0f);
-	//Vector3 cameraTarget(0.0f, 0.0f, 0.0f);
-	//Vector3 cameraUp(0.0f, 1.0f, 0.0f);
-
-	//クリップ面        近　　　 遠
-	SetCameraNearFar(1.0f, 1000.0f);//カメラの有効範囲の設定
-	SetCameraScreenCenter(WindowWidth / 2.0f, WindowHeight / 2.0f);//画面の中心をカメラの中心に合わせる
-	SetCameraPositionAndTargetAndUpVec(
-		Vector3(-20.0f, 20.0f, -200.0f),			//カメラの位置
-		//Vector3(0.0f, 200.0f,0.0f),				//カメラの位置
-		Vector3(0.0f, 0.0f, 0.0f),				//カメラの注視点
-		Vector3(0.0f, 1.0f, 0.0f)				//カメラの上の向き
-	);
-
-	//時間計算に必要なデータ
-	long long startCount = 0;
-	long long nowCount = 0;
-	long long elapsedCount = 0;
-
-	Quaternion* quaternion = new Quaternion();
-	Quaternion q1 = { 2.0f,3.0f,4.0f,1.0f };
-	Quaternion q2 = { 1.0f,3.0f,5.0f,2.0f };
-	Quaternion identity = quaternion->IdentityQuaternion();
-	Quaternion conj = quaternion->Conjugate(q1);
-	Quaternion inv = quaternion->Inverse(q1);
-	Quaternion normal = quaternion->Normalize(q1);
-	Quaternion mul1 = quaternion->Multiply(q1, q2);
-	Quaternion mul2 = quaternion->Multiply(q2, q1);
-	float norm = quaternion->Norm(q1);
-
-	//補間で使うデータ
-	//start → end を5秒で完了させる
-	Vector3 start(-100.0f, 0, 0);		//スタート地点
-	Vector3 p2(-50.0f, 50.0f, +50.0f);	//制御点その1
-	Vector3 p3(+50.0f, -30.0f, -50.0f);	//制御点その2
-	Vector3 end(100.0f, 0.0f, 0.0f);	//ゴール地点
-
-	//				p1 - p2 - p3 - p4 を通るスプライン曲線を考える
-	//					先頭(p0)と最後(p5)に制御点を追加している
-	//								p0	p1			p4	p5
-	std::vector<Vector3> points{ start,start,p2,p3,end,end };
-
-	float maxTime = 5.0f;				//全体時間[s]
-	float timeRate;						//何％時間が進んだか
-
-	//球の位置
-	Vector3 position;
-
-	//実行前にカウント値を取得
-	startCount = GetNowHiPerformanceCount(); //long long int型 64bit int
-
-	//P1からスタートする
-	size_t startIndex = 1;
-
-	//ゲームループ
-	while (ProcessMessage() == 0 && CheckHitKey(KEY_INPUT_ESCAPE) == 0) {
-
-		//// 更新処理
-
-		//[R]でリセット
-		if (CheckHitKey(KEY_INPUT_R)) {
-			startCount = GetNowHiPerformanceCount();
-			startIndex = 1;
-		}
-
-		//経過時間(elapsedTime[s])の計算
-		nowCount = GetNowHiPerformanceCount();
-		elapsedCount = nowCount - startCount;
-		float elapsedTime = static_cast<float> (elapsedCount) / 1000000.0f;
-
-		//スタート地点		: start
-		//エンド地点		: end
-		//経過時間		: elapsed[s]
-		//移動完了の率	(経過時間/全体時間) : timeRate(％)
-
-		//timeRate = min(elapsedTime / maxTime, 1.0f);
-
-		timeRate = elapsedTime / maxTime;
-		//timeRateが1.0f以上になったら、次の区間に進む
-
-		if (timeRate >= 1.0f) {
-			if (startIndex < points.size() - 3) {
-
-				startIndex++;
-
-				timeRate -= 1.0f;
-				startCount = GetNowHiPerformanceCount();
-			}
-			else {
-				timeRate = 1.0f;
-			}
-		}
-		position = splinePosition(points, startIndex, timeRate);
-
-		//position = easeIn(start,end,timerate);
-		//position = easeOut(start,end,timerate);
-		//position = easeInOut(start,end,timerate);
-
-		// 描画処理
-		ClearDrawScreen();	//画面を消去
-		DrawAxis3D(500.0f);	//xyz軸の描画
-
-		//球の描画
-		DrawSphere3D(start, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
-		DrawSphere3D(p2, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
-		DrawSphere3D(p3, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
-		DrawSphere3D(end, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
-
-		DrawSphere3D(position, 5.0f, 32, GetColor(255, 0, 0), GetColor(255, 255, 255), TRUE);
-
-		// 座標などの描画
-		DrawFormatString(0, 0, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f  %4.2f  : Identity\n", identity.x, identity.y, identity.z, identity.w);
-		DrawFormatString(0, 20, GetColor(255, 255, 255), "%4.2f %4.2f %4.2f %4.2f    : Conjugate\n", conj.x, conj.y, conj.z, conj.w);
-		DrawFormatString(0, 40, GetColor(255, 255, 255), "%4.2f %4.2f %4.2f %4.2f    : Inverse\n", inv.x, inv.y, inv.z, inv.w);
-		DrawFormatString(0, 60, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f  %4.2f : Normalize\n", normal.x, normal.y, normal.z, normal.w);
-		DrawFormatString(0, 80, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f %4.2f  : Multiplay(q1, q2)\n", mul1.x, mul1.y, mul1.z, mul1.w);
-		DrawFormatString(0, 100, GetColor(255, 255, 255), "%4.2f  %4.2f %4.2f %4.2f  : Multiplay(q2, q1)\n", mul2.x, mul2.y, mul2.z, mul2.w);
-		DrawFormatString(0, 120, GetColor(255, 255, 255), "%4.2f                     : Norm\n", norm);
-		//フリップする
-		ScreenFlip();
+	// DXlibの初期化
+	if (DxLib_Init() == -1) {
+		return -1;
 	}
 
-	//20ミリ秒待機(疑似60FPS)
-	WaitTimer(20);
+	// (ダブルバッファ)描画先グラフィック領域は裏面を指定
+	SetDrawScreen(DX_SCREEN_BACK);
 
+	// 画像などのリソースデータの変数宣言と読み込み
+
+	// ゲームループで使う変数の宣言
+
+	Quaternion rotation0 = MakeAxisAngle({ 0.71f,0.71f,0.0f }, 0.3f);
+	Quaternion rotation1 = MakeAxisAngle({ 0.71f, 0.0f, 0.71f }, 3.141592f);
+
+
+	Quaternion interpolate0 = Slerp(rotation0, rotation1, 0.0f);
+	Quaternion interpolate1 = Slerp(rotation0, rotation1, 0.3f);
+	Quaternion interpolate2 = Slerp(rotation0, rotation1, 0.5f);
+	Quaternion interpolate3 = Slerp(rotation0, rotation1, 0.7f);
+	Quaternion interpolate4 = Slerp(rotation0, rotation1, 1.0f);
+
+	// 最新のキーボード情報用
+	char keys[256] = { 0 };
+
+	// 1ループ(フレーム)前のキーボード情報
+	char oldkeys[256] = { 0 };
+
+	// ゲームループ
+	while (true) {
+		// 最新のキーボード情報だったものは1フレーム前のキーボード情報として保存
+		for (int i = 0; i < 256; ++i) {
+			oldkeys[i] = keys[i];
+		}
+		// 最新のキーボード情報を取得
+		GetHitKeyStateAll(keys);
+
+		// 画面クリア
+		ClearDrawScreen();
+		//---------  ここからプログラムを記述  ----------//
+
+		// 更新処理
+
+
+
+		// 描画処理
+
+		DrawFormatString(0, 0, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f   %4.2f  : interpolation0, Slerp(q0, q1, 0.0f)", interpolate0.x, interpolate0.y, interpolate0.z, interpolate0.w);
+		DrawFormatString(0, 20, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f   %4.2f  : interpolation1, Slerp(q0, q1, 0.3f)", interpolate1.x, interpolate1.y, interpolate1.z, interpolate1.w);
+		DrawFormatString(0, 40, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f   %4.2f  : interpolation2, Slerp(q0, q1, 0.5f)", interpolate2.x, interpolate2.y, interpolate2.z, interpolate2.w);
+		DrawFormatString(0, 60, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f   %4.2f  : interpolation3, Slerp(q0, q1, 0.7f)", interpolate3.x, interpolate3.y, interpolate3.z, interpolate3.w);
+		DrawFormatString(0, 80, GetColor(255, 255, 255), "%4.2f  %4.2f  %4.2f   %4.2f  : interpolation4, Slerp(q0, q1, 1.0f)", interpolate4.x, interpolate4.y, interpolate4.z, interpolate4.w);
+		/*DrawFormatString(0, 20, GetColor(255, 255, 255),  "%4.2f  %4.2f  %4.2f        : rotateByMatrix",);*/
+		//---------  ここまでにプログラムを記述  ---------//
+		// (ダブルバッファ)裏面
+		ScreenFlip();
+
+		// 20ミリ秒待機(疑似60FPS)
+		WaitTimer(20);
+
+		// Windowsシステムからくる情報を処理する
+		if (ProcessMessage() == -1) {
+			break;
+		}
+
+		// ESCキーが押されたらループから抜ける
+		if (CheckHitKey(KEY_INPUT_ESCAPE) == 1) {
+			break;
+		}
+	}
 	// Dxライブラリ終了処理
 	DxLib_End();
 
@@ -176,75 +110,3 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	return 0;
 }
 
-//x,y,z軸の描画
-void DrawAxis3D(const float length) {
-	//軸の線の描画
-	DrawLine3D(Vector3(-length, 0, 0), Vector3(+length, 0, 0), GetColor(255, 0, 0));
-	DrawLine3D(Vector3(0, -length, 0), Vector3(0, +length, 0), GetColor(0, 255, 0));
-	DrawLine3D(Vector3(0, 0, -length), Vector3(0, 0, +length), GetColor(0, 0, 255));
-}
-
-//キー操作の描画
-void DrawKeyOperation() {
-	const unsigned white = GetColor(255, 255, 255);
-
-	DrawFormatString(10, 20 * 1, white, "[W][E][R]  R : リセット");
-	DrawFormatString(10, 20 * 2, white, "[A][S][D] AD : y軸まわりの回転");
-	DrawFormatString(10, 20 * 3, white, "[Z]	   WS : X軸まわりの回転");
-	DrawFormatString(10, 20 * 4, white, "		　　EZ : Z軸まわりの回転");
-}
-
-//以降、Dxlibの各関数でVector3型 Matrix4型 を利用できるようにする関数群
-//球の描画
-//Dxlib => int DrawSphere3D(VECTOR CenterPos, float r, int DivNum, unsigned int DifColor, unsigned int SpcColor, int FillFlag);
-
-int DrawSphere3D(const Vector3& CenterPos, const float r, const int DivNum,
-				 const unsigned int DifColor, const unsigned int SpcColor, const int FillFlag) {
-	VECTOR centerPos = { CenterPos.x,CenterPos.y,CenterPos.z };
-
-	return DrawSphere3D(centerPos, r, DivNum, DifColor, SpcColor, FillFlag);
-}
-
-//線分の描画
-//Dxlib => int DrawLine3D(VECTOR Pos1, VECTOR Pos2, unsigned int Color);
-int DrawLine3D(const Vector3& Pos1, const Vector3& Pos2, const unsigned int Color) {
-	VECTOR p1 = { Pos1.x, Pos1.y, Pos1.z };
-	VECTOR p2 = { Pos2.x, Pos2.y, Pos2.z };
-
-	return DrawLine3D(p1, p2, Color);
-}
-
-// カメラの位置と姿勢の設定
-int SetCameraPositionAndTargetAndUpVec(
-	const Vector3& cameraPosition,  // カメラの位置
-	const Vector3& cameraTarget,    // カメラの注視点
-	const Vector3& cameraUp         // カメラの上の向き
-) {
-	VECTOR position = { cameraPosition.x,cameraPosition.y,cameraPosition.z };
-	VECTOR target = { cameraTarget.x,cameraTarget.y,cameraTarget.z };
-	VECTOR up = { cameraUp.x,cameraUp.y,cameraUp.z };
-
-	return SetCameraPositionAndTargetAndUpVec(position, target, up);
-}
-
-Vector3 splinePosition(const std::vector<Vector3>& points, size_t startIndex, float t) {
-	//補間すべき点
-	size_t n = points.size() - 2;
-
-	if (startIndex > n) return points[n];
-	if (startIndex < 1) return points[1];
-
-	//p0~p3の制御点を取得する
-	Vector3 p0 = points[startIndex - 1];
-	Vector3 p1 = points[startIndex];
-	Vector3 p2 = points[startIndex + 1];
-	Vector3 p3 = points[startIndex + 2];
-
-	//Catmull-Rom の式による補間
-	Vector3 position = 0.5 * (p1 * 2 + (-p0 + p2) *
-							  t + (p0 * 2 - p1 * 5 + p2 * 4 - p3) *
-							  (t * t) + (-p0 + p1 * 3 - p2 * 3 + p3) *
-							  (t * t * t));
-
-	return position;
-}
