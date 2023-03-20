@@ -65,14 +65,15 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	//補間で使うデータ
 	//start → end を5秒で完了させる
 	Vector3 start(-100.0f, 0, 0);		//スタート地点
-	Vector3 p2(-50.0f,  50.0f, +50.0f);	//制御点その1
-	Vector3 p3(+50.0f,-30.0f, -50.0f);	//制御点その2
+	Vector3 p2(-20.0f, 50.0f, +50.0f);	//制御点その1
+	Vector3 p3(0.0f,-30.0f, -50.0f);	//制御点その2
+	Vector3 p4(50.0f, 10.0f, 30.0);
 	Vector3 end(100.0f, 0.0f, 0.0f);	//ゴール地点
 
 	//				p1 - p2 - p3 - p4 を通るスプライン曲線を考える
 	//					先頭(p0)と最後(p5)に制御点を追加している
-	//								p0	p1			p4	p5
-	std::vector<Vector3> points{ start,start,p2,p3,end,end };
+	//								p0	p1	p2	p3	p4	p5
+	std::vector<Vector3> points{ start,start,p2,p3,p4,end,end };
 
 	float maxTime = 5.0f;				//全体時間[s]
 	float timeRate;						//何％時間が進んだか
@@ -81,7 +82,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	Vector3 position;
 
 	//実行前にカウント値を取得
-	startCount = GetNowHiPerformanceCount(); //long long int型 64bit int
+	startCount = GetTickCount64(); //long long int型 64bit int
 
 	//P1からスタートする
 	size_t startIndex = 1;
@@ -91,16 +92,16 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 		//// 更新処理
 
-		//[R]でリセット
-		if (CheckHitKey(KEY_INPUT_R)) {
-			startCount = GetNowHiPerformanceCount();
-			startIndex = 1;
-		}
+		////[R]でリセット
+		//if (CheckHitKey(KEY_INPUT_R)) {
+		//	startCount = GetTickCount64();
+		//	startIndex = 1;
+		//}
 
 		//経過時間(elapsedTime[s])の計算
-		nowCount = GetNowHiPerformanceCount();
+		nowCount = GetTickCount64();
 		elapsedCount = nowCount - startCount;
-		float elapsedTime = static_cast<float> (elapsedCount) / 1000000.0f;
+		float elapsedTime = static_cast<float> (elapsedCount) / 1000.0f;
 
 		//スタート地点		: start
 		//エンド地点		: end
@@ -110,15 +111,15 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		//timeRate = min(elapsedTime / maxTime, 1.0f);
 
 		timeRate = elapsedTime / maxTime;
-		//timeRateが1.0f以上になったら、次の区間に進む
 
+		//timeRateが1.0f以上になったら、次の区間に進む
 		if (timeRate >= 1.0f) {
 			if (startIndex < points.size() - 3) {
 
 				startIndex++;
 
 				timeRate -= 1.0f;
-				startCount = GetNowHiPerformanceCount();
+				startCount = GetTickCount64();
 			}
 			else {
 				timeRate = 1.0f;
@@ -138,6 +139,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		DrawSphere3D(start, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
 		DrawSphere3D(p2, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
 		DrawSphere3D(p3, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
+		DrawSphere3D(p4, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
 		DrawSphere3D(end, 2.5f, 32, GetColor(0, 255, 0), GetColor(255, 255, 255), TRUE);
 
 		DrawSphere3D(position, 5.0f, 32, GetColor(255, 0, 0), GetColor(255, 255, 255), TRUE);
@@ -151,7 +153,9 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		DrawFormatString(0, 100, GetColor(255, 255, 255), "start (%6.1f,%6.1f,%6.1f)", start.x, start.y, start.z);
 		DrawFormatString(0, 120, GetColor(255, 255, 255), "p2    (%6.1f,%6.1f,%6.1f)", p2.x, p2.y, p2.z);
 		DrawFormatString(0, 140, GetColor(255, 255, 255), "p3    (%6.1f,%6.1f,%6.1f)", p3.x, p3.y, p3.z);
-		DrawFormatString(0, 160, GetColor(255, 255, 255), "end   (%6.1f,%6.1f,%6.1f)", end.x, end.y, end.z);
+		DrawFormatString(0, 160, GetColor(255, 255, 255), "p4    (%6.1f,%6.1f,%6.1f)", p4.x, p4.y, p4.z);
+		DrawFormatString(0, 200, GetColor(255, 255, 255), "end   (%6.1f,%6.1f,%6.1f)", end.x, end.y, end.z);
+		DrawFormatString(0, 220, GetColor(255, 255, 255), "elapsedCount %f[s]", elapsedCount);
 		//フリップする
 		ScreenFlip();
 	}
